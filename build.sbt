@@ -1,10 +1,12 @@
 sbtPlugin := true
 
-organization := "com.samskivert"
+organization := "edu.berkeley.cs"
 
 name := "sbt-condep-plugin"
 
-version := "1.2-SNAPSHOT"
+version := "1.3-SNAPSHOT"
+
+crossSbtVersions := Vector("0.13.15", "1.0.0-RC3")
 
 publishMavenStyle := true
 

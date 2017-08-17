@@ -1,7 +1,7 @@
 //
 // $Id$
 
-package com.samskivert.condep
+package condep
 
 import sbt._
 
