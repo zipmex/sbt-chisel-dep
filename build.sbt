@@ -15,6 +15,6 @@ publishTo := Some(Resolver.file("Local", file("gh-pages") / "maven" asFile)(
 
 ScriptedPlugin.scriptedSettings
 scriptedLaunchOpts := { scriptedLaunchOpts.value ++
-  Seq("-Xmx1024M", "-XX:MaxPermSize=256M", "-Dplugin.version=" + version.value)
+  Seq("-Xmx1024M", "-XX:MaxPermSize=256M", "-Dsbt.log.noformat=true", "-Dplugin.version=" + version.value)
 }
 scriptedBufferLog := false
