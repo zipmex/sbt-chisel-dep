@@ -1,10 +1,10 @@
 
 organization := "edu.berkeley.cs"
 
-val projDeps = condep.Depends(
-  ("subproject1", null, "edu.berkeley.cs" %% "subproject1" % "0.1-SNAPSHOT"),
-  ("subproject2", null, "edu.berkeley.cs" %% "subproject2" % "0.1-SNAPSHOT")
-)
+val projDeps = condep.ProjectModuleDependencies.dependencies(Seq(
+  ("subproject1", None, "edu.berkeley.cs" %% "subproject1" % "0.1-SNAPSHOT"),
+  ("subproject2", None, "edu.berkeley.cs" %% "subproject2" % "0.1-SNAPSHOT")
+))
 
 val dependentProjects = projDeps.projects
 
