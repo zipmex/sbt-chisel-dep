@@ -1,7 +1,7 @@
 
 organization := "edu.berkeley.cs"
 
-val projDeps = condep.ProjectModuleDependencies.dependencies(Seq(
+val projDeps = condep.ChiselDependencies.dependencies(Seq(
   ("subproject1", None, "edu.berkeley.cs" %% "subproject1" % "0.1-SNAPSHOT")
 ))
 

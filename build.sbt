@@ -10,8 +10,27 @@ version := "1.3-SNAPSHOT"
 
 publishMavenStyle := true
 
-publishTo := Some(Resolver.file("Local", file("gh-pages") / "maven" asFile)(
-  Patterns(true, Resolver.mavenStyleBasePattern)))
+publishArtifact in Test := false
+
+pomIncludeRepository := { x => false }
+
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
+
+pomExtra :=
+  <url>http://chisel.eecs.berkeley.edu/</url>
+  <licenses>
+    <license>
+      <name>BSD-style</name>
+      <url>http://www.opensource.org/licenses/bsd-license.php</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
 
 ScriptedPlugin.scriptedSettings
 scriptedLaunchOpts := { scriptedLaunchOpts.value ++
