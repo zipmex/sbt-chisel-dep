@@ -4,9 +4,12 @@
 package condep
 
 import sbt._
+import sbt.Logger
 import Keys._
 
-object ChiselProjectDependenciesPlugin  extends AutoPlugin {
+object ChiselProjectDependenciesPlugin extends AutoPlugin {
+  // The top/root directory for the project.
+  var topDir:  Option[File] = None
   // Common Chisel project settings.
   // These may be overridden (or augmented) on an individual project basis.
   lazy val chiselProjectSettings: Seq[Def.Setting[_]] = Seq(
@@ -43,10 +46,11 @@ object ChiselProjectDependenciesPlugin  extends AutoPlugin {
 
 object ChiselDependencies {
   type ProjectOrModuleTuple = (String, Option[String], ModuleID)
-  case class ProjectOrModule(buildURI: String, subProj: Option[String], library: ModuleID) {
+  private[ChiselDependencies] case class ProjectOrModule(buildURI: String, subProj: Option[String], library: ModuleID) {
     def this(t: ProjectOrModuleTuple) {
       this(t._1, t._2, t._3)
     }
+    var projectReference: Option[ProjectReference] = None
   }
   type PackageProjectsMap = scala.collection.mutable.Map[String, ProjectReference]
   private val packageProjectsMap: PackageProjectsMap = new scala.collection.mutable.LinkedHashMap[String, ProjectReference]()
@@ -60,7 +64,7 @@ object ChiselDependencies {
     * Allows projects to be symlinked into the current directory for a direct dependency, or fall back
     * to obtaining the project from Maven otherwise.
     */
-  class Depends (var useProject: (String) => Boolean, val deps: Seq[ProjectOrModule])
+  class Depends (var useProject: (String) => Boolean, rootDir: Option[File], val deps: Seq[ProjectOrModule])
   {
     /**
       * Returns a list of all dependencies that could not be resolved via their local symlink.
@@ -69,15 +73,30 @@ object ChiselDependencies {
       case dep: ProjectOrModule if !useProject(dep.buildURI) => dep.library
     }
 
-    private[ChiselDependencies] def symproj (dir :File, subproj :Option[String] = null) =
-      if (subproj.isEmpty) RootProject(dir) else ProjectRef(dir, subproj.get)
+    private[ChiselDependencies] def symproj(dep: ProjectOrModule) = {
+      val dir: File = rootDir match {
+        case None => file(dep.buildURI)
+        case Some(dir: File) => dir / dep.buildURI
+      }
+      if (dep.subProj.isEmpty) {
+        RootProject(dir)
+      } else {
+        ProjectRef(dir, dep.subProj.get)
+      }
+    }
+
+    private[ChiselDependencies] def saveRef(dep: ProjectOrModule): ProjectReference = {
+      if (dep.projectReference.isEmpty) {
+        dep.projectReference = Some(symproj(dep))
+      }
+      dep.projectReference.get
+    }
 
     /**
       * Return a sequence of projects we intend to build/depend on,
       *   suitable for use as an argument to aggregate() or dependsOn.
       */
-    def projects: Seq[ProjectReference] = deps collect {
-      case dep: ProjectOrModule if useProject(dep.buildURI) => symproj(file(dep.buildURI), dep.subProj)
+    def projects: Seq[ProjectReference] = deps collect { case dep: ProjectOrModule if useProject(dep.buildURI) => saveRef(dep)
     }
 
     /**
@@ -91,37 +110,24 @@ object ChiselDependencies {
   }
 
   def dependencies (deps: Seq[ProjectOrModuleTuple]): Depends = {
-    val depends = new Depends(useProjectFunction, deps map (new ProjectOrModule(_)))
-    println(s"In dependencies: ${deps.toString()}")
-    val verbose = 2
-    if (verbose == 2) {
-      for (dep <- depends.deps) {
-        println(s"dep: $dep")
-        val (id: String, subp: Option[String], mod: ModuleID) = (dep.buildURI, dep.subProj, dep.library)
-        println(s"id: $id")
-        if (!packageProjectsMap.contains(id) && useProjectFunction(id)) {
-          println(s"adding $id to map")
-          packageProjectsMap(id) = depends.symproj(file(id), subp)
-        }
-      }
-    } else if (verbose == 1) {
-      for (dep <- depends.deps) {
-        val (id: String, subp: Option[String], mod: ModuleID) = (dep.buildURI, dep.subProj, dep.library)
-        println(s"id: $id")
-        if (!packageProjectsMap.contains(id) && useProjectFunction(id)) {
-          println(s"adding $id to map")
-          packageProjectsMap(id) = depends.symproj(file(id), subp)
-        }
-      }
-    } else {
-      depends.deps.foreach { dep =>
-        val (id: String, subp: Option[String], mod: ModuleID) = (dep.buildURI, dep.subProj, dep.library)
-        if (!packageProjectsMap.contains(id) && useProjectFunction(id)) {
-          packageProjectsMap(id) = depends.symproj(file(id), subp)
-        }
+    // Is this the root project (i.e., have we been here before)?
+    // We need a better way to determine this.
+    // We may have a broken top-level project that doesn't define the dependencies,
+    //  in which case we may be in the first subproject to do so.
+    // Supposedly the possibly dependent projects won't be found, so we'll pull in the Ivy libraries.
+    if (packageProjectsMap.isEmpty) {
+      ChiselProjectDependenciesPlugin.topDir = Some(file(".").getCanonicalFile)
+    }
+//    log.debug(s"In dependencies: ${ChiselProjectDependenciesPlugin.topDir} ${deps.toString()}")
+    val depends = new Depends(useProjectFunction, ChiselProjectDependenciesPlugin.topDir, deps map (new ProjectOrModule(_)))
+    depends.deps.foreach { dep =>
+      val id: String = dep.buildURI
+      if (!packageProjectsMap.contains(id) && useProjectFunction(id)) {
+//        log.debug(s"adding $id to map")
+        packageProjectsMap(id) = depends.symproj(dep)
       }
     }
-    println(s"packageProjectsMap: ${packageProjectsMap.toString()}")
+//    log.debug(s"packageProjectsMap: ${packageProjectsMap.toString()}")
     depends
   }
 
