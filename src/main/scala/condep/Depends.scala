@@ -110,6 +110,7 @@ object ChiselDependencies {
   }
 
   def dependencies (deps: Seq[ProjectOrModuleTuple]): Depends = {
+    var projectFunction = subUseProjectFunctionDefault
     // Is this the root project (i.e., have we been here before)?
     // We need a better way to determine this.
     // We may have a broken top-level project that doesn't define the dependencies,
@@ -117,9 +118,10 @@ object ChiselDependencies {
     // Supposedly the possibly dependent projects won't be found, so we'll pull in the Ivy libraries.
     if (packageProjectsMap.isEmpty) {
       ChiselProjectDependenciesPlugin.topDir = Some(file(".").getCanonicalFile)
+      projectFunction = topUseProjectFunctionDefault
     }
 //    log.debug(s"In dependencies: ${ChiselProjectDependenciesPlugin.topDir} ${deps.toString()}")
-    val depends = new Depends(useProjectFunction, ChiselProjectDependenciesPlugin.topDir, deps map (new ProjectOrModule(_)))
+    val depends = new Depends(projectFunction, ChiselProjectDependenciesPlugin.topDir, deps map (new ProjectOrModule(_)))
     depends.deps.foreach { dep =>
       val id: String = dep.buildURI
       if (!packageProjectsMap.contains(id) && useProjectFunction(id)) {
