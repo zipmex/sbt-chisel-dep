@@ -4,7 +4,6 @@
 package condep
 
 import sbt._
-import sbt.Logger
 import Keys._
 
 object ChiselProjectDependenciesPlugin extends AutoPlugin {
@@ -115,25 +114,27 @@ object ChiselDependencies {
     // Return an sbt ProjectReference for a project dependency
     def symproj(dep: ProjectOrModule): ProjectReference = {
       val dir: File = rootDir  / dep.buildURI
+      // Is this one of possibly many projects in the subproject directory?
       if (dep.subProj.isEmpty) {
+        // A single project
         RootProject(dir)
       } else {
+        // One of many projects
         ProjectRef(dir, dep.subProj.get)
       }
     }
-//    log.debug(s"In dependencies: $rootDir ${deps.toString()}")
-    val depends = new Depends(deps /* map (new ProjectOrModule(_)) */)
+
+    val depends = new Depends(deps)
     // For each dependency for which we can find a directory (at the top level),
     //  generate and save a ProjectReference
     depends.deps.foreach { dep =>
       val id: String = dep.buildURI
       // Don't bother with the project map if there's no directory/buildURI for this dependency.
       if (id != "" && !packageProjectsMap.contains(id) && file(id).exists) {
-//        log.debug(s"adding $id to map")
         packageProjectsMap(id) = symproj(dep)
       }
     }
-//    log.debug(s"packageProjectsMap: ${packageProjectsMap.toString()}")
+
     depends
   }
 }
