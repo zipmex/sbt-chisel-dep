@@ -8,8 +8,6 @@ import sbt.Logger
 import Keys._
 
 object ChiselProjectDependenciesPlugin extends AutoPlugin {
-  // The top/root directory for the project.
-  var topDir:  Option[File] = None
   // Common Chisel project settings.
   // These may be overridden (or augmented) on an individual project basis.
   lazy val chiselProjectSettings: Seq[Def.Setting[_]] = Seq(
@@ -45,100 +43,97 @@ object ChiselProjectDependenciesPlugin extends AutoPlugin {
 }
 
 object ChiselDependencies {
-  type ProjectOrModuleTuple = (String, Option[String], ModuleID)
-  private[ChiselDependencies] case class ProjectOrModule(buildURI: String, subProj: Option[String], library: ModuleID) {
-    def this(t: ProjectOrModuleTuple) {
-      this(t._1, t._2, t._3)
+  // The argument type for dependency specification.
+  // In the general case, clients will furnish two arguments:
+  //  - the ModuleID for the library form of the dependency,
+  //  - the top-level directory containing the sbt project form of the dependency.
+  type ProjectOrModuleTuple2 = (/* library dependency */ ModuleID, /* project directory */ String)
+  // In rare cases, where the project is one of many in the same build.sbt file, an additional argument is required:
+  //  - the project name in the subproject build.sbt file.
+  type ProjectOrModuleTuple3 = (/* library dependency */ ModuleID, /* project directory */ String, /* subproject in project's sbt file */ Option[String])
+  // In even rarer cases, only the library version of the dependency is available, and no project argument is required.
+  type ProjectOrModuleTuple1 = (/* library dependency */ ModuleID)
+  // Internally, we use a small case class to embody the dependency definition.
+  private[ChiselDependencies] case class ProjectOrModule(library: ModuleID, buildURI: String, subProj: Option[String] = None) {
+    def this(t: ProjectOrModuleTuple2) {
+      this( t._1, t._2)
     }
-    var projectReference: Option[ProjectReference] = None
+    def this(t: ProjectOrModuleTuple3) {
+      this( t._1, t._2, t._3)
+    }
+    def this(t: ProjectOrModuleTuple1) {
+      this( t, "")
+    }
   }
+  //  and some implicit conversion methods for the tuples used in the client argument list.
+  implicit def tuple3ToProjectOrModule(a: ProjectOrModuleTuple3): ProjectOrModule = {
+    new ProjectOrModule(a)
+  }
+  implicit def tuple2ToProjectOrModule(a: ProjectOrModuleTuple2): ProjectOrModule = {
+    new ProjectOrModule(a)
+  }
+  implicit def tuple1ToProjectOrModule(a: ProjectOrModuleTuple1): ProjectOrModule = {
+    new ProjectOrModule(a)
+  }
+  // The central structure defining project versions of the dependencies.
+  // This is created on the first (top-level) call to define the dependencies,
+  //  and read by subprojects to determine which flavor of dependency (project or library) to use.
   type PackageProjectsMap = scala.collection.mutable.Map[String, ProjectReference]
   private val packageProjectsMap: PackageProjectsMap = new scala.collection.mutable.LinkedHashMap[String, ProjectReference]()
   /**
-    * The default function to determine whether to use a project or library.
-    */
-  private val topUseProjectFunctionDefault: ((String) => Boolean) = file(_).exists
-  private val subUseProjectFunctionDefault: ((String) => Boolean) = packageProjectsMap.contains(_)
-  private var useProjectFunction: ((String) => Boolean) = topUseProjectFunctionDefault
-  /**
-    * Allows projects to be symlinked into the current directory for a direct dependency, or fall back
+    * Allows projects to be symlinked into the top-level directory for a direct dependency, or fall back
     * to obtaining the project from Maven otherwise.
     */
-  class Depends (var useProject: (String) => Boolean, rootDir: Option[File], val deps: Seq[ProjectOrModule])
+  class Depends (val deps: Seq[ProjectOrModule])
   {
     /**
-      * Returns a list of all dependencies that could not be resolved via their local symlink.
+      * Returns a sequence of all dependent ModuleIDs
+      *  for which a top-level subproject directory does not exist.
+      * Suitable for use as a Seq of libraryDependencies.
       */
-    def libDeps: Seq[ModuleID] = deps collect {
-      case dep: ProjectOrModule if !useProject(dep.buildURI) => dep.library
+    def libraries: Seq[ModuleID] = deps collect {
+      case dep: ProjectOrModule if !packageProjectsMap.contains(dep.buildURI) => dep.library
     }
 
-    private[ChiselDependencies] def symproj(dep: ProjectOrModule) = {
-      val dir: File = rootDir match {
-        case None => file(dep.buildURI)
-        case Some(dir: File) => dir / dep.buildURI
-      }
+    /**
+      * Return a sequence of all dependent ProjectReferences
+      *  for which a top-level subproject directory exists.
+      * Suitable for use as an argument to aggregate() or dependsOn() (after wrapping with a classpathDependency()).
+      */
+    def projects: Seq[ProjectReference] = deps collect {
+      case dep: ProjectOrModule if packageProjectsMap.contains(dep.buildURI) => packageProjectsMap(dep.buildURI)
+    }
+  }
+
+  def dependencies (deps: Seq[ProjectOrModule]): Depends = {
+    // Memorize the "top-level" directory, assuming our first call is from the root project.
+    // We may have a broken top-level project that doesn't define the dependencies,
+    //  in which case we may be in the first subproject to do so.
+    // Supposedly the possibly dependent projects won't be found, so we'll pull in the Ivy libraries.
+    lazy val rootDir = file(".").getCanonicalFile
+
+    // Return an sbt ProjectReference for a project dependency
+    def symproj(dep: ProjectOrModule): ProjectReference = {
+      val dir: File = rootDir  / dep.buildURI
       if (dep.subProj.isEmpty) {
         RootProject(dir)
       } else {
         ProjectRef(dir, dep.subProj.get)
       }
     }
-
-    private[ChiselDependencies] def saveRef(dep: ProjectOrModule): ProjectReference = {
-      if (dep.projectReference.isEmpty) {
-        dep.projectReference = Some(symproj(dep))
-      }
-      dep.projectReference.get
-    }
-
-    /**
-      * Return a sequence of projects we intend to build/depend on,
-      *   suitable for use as an argument to aggregate() or dependsOn.
-      */
-    def projects: Seq[ProjectReference] = deps collect { case dep: ProjectOrModule if useProject(dep.buildURI) => saveRef(dep)
-    }
-
-    /**
-      * Set useProjectFunction
-      */
-    def setUseProjectFunction(f: ((String) => Boolean)): ((String) => Boolean) = {
-      val old = useProject
-      useProject = f
-      old
-    }
-  }
-
-  def dependencies (deps: Seq[ProjectOrModuleTuple]): Depends = {
-    var projectFunction = subUseProjectFunctionDefault
-    // Is this the root project (i.e., have we been here before)?
-    // We need a better way to determine this.
-    // We may have a broken top-level project that doesn't define the dependencies,
-    //  in which case we may be in the first subproject to do so.
-    // Supposedly the possibly dependent projects won't be found, so we'll pull in the Ivy libraries.
-    if (packageProjectsMap.isEmpty) {
-      ChiselProjectDependenciesPlugin.topDir = Some(file(".").getCanonicalFile)
-      projectFunction = topUseProjectFunctionDefault
-    }
-//    log.debug(s"In dependencies: ${ChiselProjectDependenciesPlugin.topDir} ${deps.toString()}")
-    val depends = new Depends(projectFunction, ChiselProjectDependenciesPlugin.topDir, deps map (new ProjectOrModule(_)))
+//    log.debug(s"In dependencies: $rootDir ${deps.toString()}")
+    val depends = new Depends(deps /* map (new ProjectOrModule(_)) */)
+    // For each dependency for which we can find a directory (at the top level),
+    //  generate and save a ProjectReference
     depends.deps.foreach { dep =>
       val id: String = dep.buildURI
-      if (!packageProjectsMap.contains(id) && useProjectFunction(id)) {
+      // Don't bother with the project map if there's no directory/buildURI for this dependency.
+      if (id != "" && !packageProjectsMap.contains(id) && file(id).exists) {
 //        log.debug(s"adding $id to map")
-        packageProjectsMap(id) = depends.symproj(dep)
+        packageProjectsMap(id) = symproj(dep)
       }
     }
 //    log.debug(s"packageProjectsMap: ${packageProjectsMap.toString()}")
     depends
-  }
-
-  /**
-    * Set useProjectFunction
-    */
-  def setUseProjectFunction(f: ((String) => Boolean)): ((String) => Boolean) = {
-    val old = useProjectFunction
-    useProjectFunction = f
-    old
   }
 }

@@ -2,8 +2,8 @@
 organization := "edu.berkeley.cs"
 
 val projDeps = condep.ChiselDependencies.dependencies(Seq(
-  ("subproject1", None, "edu.berkeley.cs" %% "subproject1" % "0.1-SNAPSHOT"),
-  ("subproject2", None, "edu.berkeley.cs" %% "subproject2" % "0.1-SNAPSHOT")
+  ("edu.berkeley.cs" %% "subproject1" % "0.1-SNAPSHOT", "subproject1.NOT"),
+  ("edu.berkeley.cs" %% "subproject2" % "0.1-SNAPSHOT", "subproject2")
 ))
 
 val dependentProjects = projDeps.projects
@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
       publishLocal := {},
       publish := {},
       packagedArtifacts := Map.empty,
-      libraryDependencies ++= projDeps.libDeps
+      libraryDependencies ++= projDeps.libraries
     )
     .dependsOn(dependentProjects.map(classpathDependency(_)): _*)
     .aggregate(dependentProjects: _*)
