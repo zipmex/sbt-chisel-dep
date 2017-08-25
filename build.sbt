@@ -2,13 +2,40 @@ sbtPlugin := true
 
 organization := "edu.berkeley.cs"
 
-name := "sbt-condep-plugin"
+name := "sbt-chisel-dep"
 
 version := "1.3-SNAPSHOT"
 
-crossSbtVersions := Vector("0.13.15", "1.0.0-RC3")
+addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0")
+
+//crossSbtVersions := Vector("0.13.15", "1.0.0-RC3")
 
 publishMavenStyle := true
 
-publishTo := Some(Resolver.file("Local", file("gh-pages") / "maven" asFile)(
-  Patterns(true, Resolver.mavenStyleBasePattern)))
+publishArtifact in Test := false
+
+pomIncludeRepository := { x => false }
+
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
+
+pomExtra :=
+  <url>http://chisel.eecs.berkeley.edu/</url>
+  <licenses>
+    <license>
+      <name>BSD-style</name>
+      <url>http://www.opensource.org/licenses/bsd-license.php</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+
+ScriptedPlugin.scriptedSettings
+scriptedLaunchOpts := { scriptedLaunchOpts.value ++
+  Seq("-Xmx1024M", "-XX:MaxPermSize=256M", "-Dsbt.log.noformat=true", "-Dplugin.version=" + version.value)
+}
+scriptedBufferLog := false
