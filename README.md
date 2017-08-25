@@ -1,49 +1,50 @@
-sbt-condep-plugin
+sbt-chisel-dep
 =================
 
-This plugin adds the ability to have conditional direct dependencies on other
-projects. By default, conditional dependencies will reference an Ivy (or Maven)
-artifact, but if you create an appropriately named symlink in your project
-directory to the depended-upon project, a direct (SBT) dependency will be
-established on that project. This allows automatic rebuilding of depended-upon
-projects when running targets in the depending project, and provides a magical
-"things just get recompiled when they need to" experience, like one gets with
-IDEs.
+This plugin (forked from samskivert/sbt-condep-plugin) adds the ability to have conditional direct dependencies on other projects.
+By default, conditional dependencies will reference an Ivy (or Maven)
+artifact, but if you create an appropriately named symlink (or directory)
+in your top-level project directory for the depended-upon project,
+a direct (SBT) dependency will be established on that project.
+This allows automatic rebuilding of depended-upon
+projects when running targets in the depending project,
+and provides a magical
+"things just get recompiled when they need to" experience,
+like one gets with IDEs.
 
 Usage
 -----
 
-Add the plugin to `project/plugins/build.sbt`:
+Add the plugin to `project/plugins.sbt`:
 
-    resolvers += "Condep repo" at "http://samskivert.github.com/sbt-condep-plugin/maven"
+    addSbtPlugin("edu.berkeley.cs" % "sbt-chisel-dep" % "1.3-SNAPSHOT")
 
-    libraryDependencies += "com.samskivert" %% "sbt-condep-plugin" % "1.0"
-
-In your `project/Build.scala` file, declare and use your conditional
+In your `build.sbt` file, declare and use your conditional
 dependencies like so:
 
-    object MyProjBuild extends Build {
-      val condeps = com.samskivert.condep.Depends(
-        ("foolib",   null,     "foo.bar" % "foolib" % "1.0-SNAPSHOT"),
-        ("bazproj", "subbaz",  "foo.baz" % "bazproj-subbaz" % "1.0-SNAPSHOT"),
-        ("bazproj", "testbaz", "foo.baz" % "bazproj-testbaz" % "1.0-SNAPSHOT" % "test")
-      )
+    val projDeps = chisel.dependencies(Seq(
+      ("edu.berkeley.cs" %% "firrtl" % "1.0-SNAPSHOT", "firrtl"),
+      ("edu.berkeley.cs" %% "chisel3" % "3.0-SNAPSHOT", "chisel3")
+    ))
+    
+    val dependentProjects = projDeps.projects
 
-      lazy val myproj = condeps.addDeps(Project(
-        "myproj", file("."), settings = Defaults.defaultSettings ++ Seq(
-          name := "myproj",
-          // ...
-          libraryDependencies ++= condeps.libDeps ++ Seq(
-            // non-conditional depends
-            "org.specs2" %% "specs2" % "1.6.1"
-          )
-        )
-      ))
-    }
+    lazy val myproj = (project in file("."))
+      .settings(
+        version := "0.1-SNAPSHOT",
+        scalaVersion := "2.11.11",
+        publishLocal := {},
+        publish := {},
+        packagedArtifacts := Map.empty,
+        libraryDependencies ++= projDeps.libraries
+      )
+      .dependsOn(dependentProjects.map(classpathDependency(_)): _*)
+      .aggregate(dependentProjects: _*)
+    
 
 By default, your project will use the Ivy/Maven artifacts as dependencies, but
-if you create `foolib` and `bazproj` symlinks in your top-level project
-directory, it will use direct SBT dependencies.
+if you create `firrtl` and/or `chisel3` symlinks (or directories) in your
+top-level project directory, it will use direct SBT dependencies.
 
 You can confirm that the direct dependencies are working by entering the
 following into the SBT console:
@@ -52,31 +53,50 @@ following into the SBT console:
 
 It will output something like the following:
 
-    [info] List(foo.bar:foolib:1.0-SNAPSHOT, foo.baz:bazproj-subbaz:1.0-SNAPSHOT)
+    [info] List(edu.berkeley.cs:firrtl:1.1-SNAPSHOT, edu.berkeley.cs:chisel3:3.1-SNAPSHOT)
 
 Note that the versions in that list will be the versions defined in the SBT
 build for those projects, which could differ from the versions you specify for
 your Ivy/Maven artifacts.
 
-Issues
-------
+If your subpojects themselves have dependencies, they will automatically
+use any SBT subprojects found by the top-level project,
+assuming they use the `sbt-chisel-dep` plugin and contain a similar call
+to `chisel.dependencies()` in their `build.sbt`
 
-Presently, if you use this plugin to depend on a project which then uses this
-plugin to depend on some other project, you have to add the transitive union of
-all condep symlinks to the top-level project, or SBT will become confused.
+The plugin also defines two sets of `settings`:
+ - `chiselProjectSettings` default edu.berkeley.cs definitions for Chisel BIG4 projects (this should only be used by Berkeley projects),
+ - `chiselBuildInfoSettings` reasonable settings for the `BuildInfoPlugin`
 
-For example, if project A has a condep on project B which has a condep on
-project C, then project B will have a symlink to project C, and project A must
-have a symlink to both projects B and C.
+To add either of these to your build, add either (or both) of the following to your `build.sbt`:
 
-At some point I'll pester mharrah into either showing me the required magic to
-make things work without the symlink from A to C, or enhancing SBT so that it's
-possible (as I ran into some apparent limitations when trying to make this
-work).
+    ChiselProjectDependenciesPlugin.chiselProjectSettings
+
+and/or
+
+    enablePlugins(BuildInfoPlugin)
+
+    ChiselProjectDependenciesPlugin.chiselBuildInfoSettings
+
+If you have multiple projects in your `build.sbt` file and you want to add
+these selectively:
+
+    lazy val myproj = (project in file(".")).
+    ...
+    settings(ChiselProjectDependenciesPlugin.chiselProjectSettings: _*).
+    ...
+
+and/or
+
+    lazy val yourproj = (project in file(".")).
+    ...
+    enablePlugins(BuildInfoPlugin).
+    settings(ChiselProjectDependenciesPlugin.chiselBuildInfoSettings: _*).
+    ...
 
 License
 -------
 
 This code is released under the New BSD License. See [LICENSE] for details.
 
-[LICENSE]: https://github.com/samskivert/sbt-condep-plugin/blob/master/LICENSE
+[LICENSE]: https://github.com/ucb-bar/sbt-chisel-dep/blob/master/LICENSE
