@@ -8,7 +8,7 @@ version := "1.3-SNAPSHOT"
 
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0")
 
-//crossSbtVersions := Vector("0.13.15", "1.0.0-RC3")
+//crossSbtVersions := Vector("0.13.16", "1.0.0-RC3")
 
 publishMavenStyle := true
 
@@ -32,7 +32,16 @@ pomExtra :=
       <distribution>repo</distribution>
     </license>
   </licenses>
-
+    <scm>
+      <url>https://github.com/ucb-bar/sbt-chisel-dep.git</url>
+      <connection>scm:git:github.com/ucb-bar/sbt-chisel-dep.git</connection>
+    </scm>
+    <developers>
+      <developer>
+        <id>ucbjrl</id>
+        <name>Jim Lawson</name>
+      </developer>
+    </developers>
 
 ScriptedPlugin.scriptedSettings
 scriptedLaunchOpts := { scriptedLaunchOpts.value ++
