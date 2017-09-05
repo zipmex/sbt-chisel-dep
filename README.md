@@ -15,8 +15,13 @@ like one gets with IDEs.
 Usage
 -----
 
-Add the plugin to `project/plugins.sbt`:
+Add the plugin (and resolvers) to your `project/plugins.sbt`:
 
+    resolvers ++= Seq(
+      Resolver.sonatypeRepo("snapshots"),
+      Resolver.sonatypeRepo("releases")
+    )
+    
     addSbtPlugin("edu.berkeley.cs" % "sbt-chisel-dep" % "1.3-SNAPSHOT")
 
 In your `build.sbt` file, declare and use your conditional
@@ -42,9 +47,14 @@ dependencies like so:
       .aggregate(dependentProjects: _*)
     
 
-By default, your project will use the Ivy/Maven artifacts as dependencies, but
-if you create `firrtl` and/or `chisel3` symlinks (or directories) in your
-top-level project directory, it will use direct SBT dependencies.
+The arguments to `chisel.dependencies()` are a `Seq()` of tuples, where the
+first element of the tuple is the `ModuleID` to use for a library dependency
+on the subproject, and the second is the name of a subdirectory containing
+the dependency as an sbt (sub)project.
+
+By default, your project will use the Ivy/Maven artifacts (libraries) as dependencies,
+but if you create `firrtl` and/or `chisel3` symlinks (or directories) in your
+top-level project directory, it will use direct SBT subproject dependencies.
 
 You can confirm that the direct dependencies are working by entering the
 following into the SBT console:
@@ -67,6 +77,9 @@ to `chisel.dependencies()` in their `build.sbt`
 The plugin also defines two sets of `settings`:
  - `chiselProjectSettings` default edu.berkeley.cs definitions for Chisel BIG4 projects (this should only be used by Berkeley projects),
  - `chiselBuildInfoSettings` reasonable settings for the `BuildInfoPlugin`
+
+Check the [source code](https://github.com/ucb-bar/sbt-chisel-dep/blob/master/src/main/scala/chisel/Depends.scala)
+for the values of these settings.
 
 To add either of these to your build, add either (or both) of the following to your `build.sbt`:
 
