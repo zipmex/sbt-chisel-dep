@@ -10,13 +10,14 @@ import sbtbuildinfo.BuildInfoKeys._
 
 object ChiselProjectDependenciesPlugin extends AutoPlugin {
   override def trigger = allRequirements
+  type ScalaMajorType = Long
   def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
     Seq() ++ {
       // If we're building with Scala > 2.11, enable the compile option
       //  switch to support our anonymous Bundle definitions:
       //  https://github.com/scala/bug/issues/10047
       CrossVersion.partialVersion(scalaVersion) match {
-        case Some((2, scalaMajor: Long)) if scalaMajor < 12 => Seq()
+        case Some((2, scalaMajor: ScalaMajorType)) if scalaMajor < 12 => Seq()
         case _ => Seq("-Xsource:2.11")
       }
     }
@@ -28,7 +29,7 @@ object ChiselProjectDependenciesPlugin extends AutoPlugin {
       //  Java 7 compatible code for Scala 2.11
       //  for compatibility with old clients.
       CrossVersion.partialVersion(scalaVersion) match {
-        case Some((2, scalaMajor: Long)) if scalaMajor < 12 =>
+        case Some((2, scalaMajor: ScalaMajorType)) if scalaMajor < 12 =>
           Seq("-source", "1.7", "-target", "1.7")
         case _ =>
           Seq("-source", "1.8", "-target", "1.8")
