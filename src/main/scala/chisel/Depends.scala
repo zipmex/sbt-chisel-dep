@@ -153,7 +153,7 @@ object dependencies {
     // We may have a broken top-level project that doesn't define the dependencies,
     //  in which case we may be in the first subproject to do so.
     // Supposedly the possibly dependent projects won't be found, so we'll pull in the Ivy libraries.
-    lazy val rootDir = file(".").getCanonicalFile
+    val rootDir = file(".").getCanonicalFile
 
     // Return an sbt ProjectReference for a project dependency
     def symproj(dep: ProjectOrLibrary): ProjectReference = {
