@@ -8,7 +8,8 @@ version := "1.3-SNAPSHOT"
 
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0")
 
-//crossSbtVersions := Vector("0.13.16", "1.0.0-RC3")
+// Building cross 0.13 and 1.0 versions is too complicated due to conflicting definitions.
+//crossSbtVersions := Vector("0.13.16", "1.0.4")
 
 publishMavenStyle := true
 
@@ -42,9 +43,3 @@ pomExtra :=
         <name>Jim Lawson</name>
       </developer>
     </developers>
-
-ScriptedPlugin.scriptedSettings
-scriptedLaunchOpts := { scriptedLaunchOpts.value ++
-  Seq("-Xmx1024M", "-XX:MaxPermSize=256M", "-Dsbt.log.noformat=true", "-Dplugin.version=" + version.value)
-}
-scriptedBufferLog := false

@@ -10,13 +10,14 @@ import sbtbuildinfo.BuildInfoKeys._
 
 object ChiselProjectDependenciesPlugin extends AutoPlugin {
   override def trigger = allRequirements
+  type ScalaMajorType = Long
   def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
     Seq() ++ {
       // If we're building with Scala > 2.11, enable the compile option
       //  switch to support our anonymous Bundle definitions:
       //  https://github.com/scala/bug/issues/10047
       CrossVersion.partialVersion(scalaVersion) match {
-        case Some((2, scalaMajor: Int)) if scalaMajor < 12 => Seq()
+        case Some((2, scalaMajor: ScalaMajorType)) if scalaMajor < 12 => Seq()
         case _ => Seq("-Xsource:2.11")
       }
     }
@@ -28,7 +29,7 @@ object ChiselProjectDependenciesPlugin extends AutoPlugin {
       //  Java 7 compatible code for Scala 2.11
       //  for compatibility with old clients.
       CrossVersion.partialVersion(scalaVersion) match {
-        case Some((2, scalaMajor: Int)) if scalaMajor < 12 =>
+        case Some((2, scalaMajor: ScalaMajorType)) if scalaMajor < 12 =>
           Seq("-source", "1.7", "-target", "1.7")
         case _ =>
           Seq("-source", "1.8", "-target", "1.8")
@@ -40,8 +41,8 @@ object ChiselProjectDependenciesPlugin extends AutoPlugin {
   // These may be overridden (or augmented) on an individual project basis.
   lazy val chiselProjectSettings: Seq[Def.Setting[_]] = Seq(
     organization := "edu.berkeley.cs",
-    scalaVersion := "2.11.11",
-    crossScalaVersions := Seq("2.11.11", "2.12.3"),
+    scalaVersion := "2.12.4",
+    crossScalaVersions := Seq("2.11.12", "2.12.4"),
 
     scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
     javacOptions ++= javacOptionsVersion(scalaVersion.value),
@@ -152,7 +153,7 @@ object dependencies {
     // We may have a broken top-level project that doesn't define the dependencies,
     //  in which case we may be in the first subproject to do so.
     // Supposedly the possibly dependent projects won't be found, so we'll pull in the Ivy libraries.
-    lazy val rootDir = file(".").getCanonicalFile
+    val rootDir = file(".").getCanonicalFile
 
     // Return an sbt ProjectReference for a project dependency
     def symproj(dep: ProjectOrLibrary): ProjectReference = {
