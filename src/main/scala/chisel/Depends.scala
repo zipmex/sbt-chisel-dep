@@ -41,8 +41,8 @@ object ChiselProjectDependenciesPlugin extends AutoPlugin {
   // These may be overridden (or augmented) on an individual project basis.
   lazy val chiselProjectSettings: Seq[Def.Setting[_]] = Seq(
     organization := "edu.berkeley.cs",
-    scalaVersion := "2.12.4",
-    crossScalaVersions := Seq("2.11.12", "2.12.4"),
+    scalaVersion := "2.12.10",
+    crossScalaVersions := Seq("2.11.12", "2.12.10"),
 
     scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
     javacOptions ++= javacOptionsVersion(scalaVersion.value),
