@@ -8,6 +8,8 @@ import Keys._
 import sbtbuildinfo._
 import sbtbuildinfo.BuildInfoKeys._
 
+import scala.language.implicitConversions
+
 object ChiselProjectDependenciesPlugin extends AutoPlugin {
   override def trigger = allRequirements
   type ScalaMajorType = Long
@@ -121,8 +123,8 @@ object dependencies {
   // The central structure defining project versions of the dependencies.
   // This is created on the first (top-level) call to define the dependencies,
   //  and read by subprojects to determine which flavor of dependency (project or library) to use.
-  type PackageProjectsMap = scala.collection.mutable.Map[String, ProjectReference]
-  private val packageProjectsMap: PackageProjectsMap = new scala.collection.mutable.LinkedHashMap[String, ProjectReference]()
+  type PackageProjectsMap = scala.collection.mutable.Map[(String, Option[String]), ProjectReference]
+  private val packageProjectsMap: PackageProjectsMap = new scala.collection.mutable.LinkedHashMap()
   /**
     * Allows projects to be symlinked into the top-level directory for a direct dependency, or fall back
     * to obtaining the project from Maven otherwise.
@@ -135,7 +137,7 @@ object dependencies {
       * Suitable for use as a Seq of libraryDependencies.
       */
     def libraries: Seq[ModuleID] = deps collect {
-      case dep: ProjectOrLibrary if !packageProjectsMap.contains(dep.buildURI) => dep.library.get
+      case dep: ProjectOrLibrary if !packageProjectsMap.contains((dep.buildURI, dep.subProj)) => dep.library.get
     }
 
     /**
@@ -144,7 +146,7 @@ object dependencies {
       * Suitable for use as an argument to aggregate() or dependsOn() (after wrapping with a classpathDependency()).
       */
     def projects: Seq[ProjectReference] = deps collect {
-      case dep: ProjectOrLibrary if packageProjectsMap.contains(dep.buildURI) => packageProjectsMap(dep.buildURI)
+      case dep: ProjectOrLibrary if packageProjectsMap.contains((dep.buildURI, dep.subProj)) => packageProjectsMap((dep.buildURI, dep.subProj))
     }
   }
 
@@ -174,8 +176,8 @@ object dependencies {
     depends.deps.foreach { dep =>
       val id: String = dep.buildURI
       // Don't bother with the project map if there's no directory/buildURI for this dependency.
-      if (id != "" && !packageProjectsMap.contains(id) && file(id).exists) {
-        packageProjectsMap(id) = symproj(dep)
+      if (id != "" && !packageProjectsMap.contains((id, dep.subProj)) && file(id).exists) {
+        packageProjectsMap((id, dep.subProj)) = symproj(dep)
       }
     }
 

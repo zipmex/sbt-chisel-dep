@@ -1,6 +1,8 @@
 enablePlugins(SbtPlugin)
 
-organization := "edu.berkeley.cs"
+val tokenSource = TokenSource.GitConfig("github.token") || TokenSource.Environment("GITHUB_TOKEN")
+
+organization := "com.zipmex"
 
 name := "sbt-chisel-dep"
 
@@ -11,35 +13,16 @@ addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
 // Building cross 0.13 and 1.0 versions is too complicated due to conflicting definitions.
 //crossSbtVersions := Vector("0.13.16", "1.0.4")
 
-publishMavenStyle := true
-
 publishArtifact in Test := false
 
-pomIncludeRepository := { x => false }
+// Github Packages settings.
+resolvers += Resolver.githubPackages("zipmex")
+ThisBuild / githubOwner := "zipmex"
+ThisBuild / githubRepository := "sbt-chisel-dep"
+githubTokenSource := tokenSource
 
-publishTo := Some(
-  if (isSnapshot.value)
-    Opts.resolver.sonatypeSnapshots
-  else
-    Opts.resolver.sonatypeStaging
-)
+// Replace '+' with '-' in version string for docker tags compatibility
+ThisBuild / dynverSeparator := "-"
 
-pomExtra :=
-  <url>http://chisel.eecs.berkeley.edu/</url>
-  <licenses>
-    <license>
-      <name>BSD-style</name>
-      <url>http://www.opensource.org/licenses/bsd-license.php</url>
-      <distribution>repo</distribution>
-    </license>
-  </licenses>
-    <scm>
-      <url>https://github.com/ucb-bar/sbt-chisel-dep.git</url>
-      <connection>scm:git:github.com/ucb-bar/sbt-chisel-dep.git</connection>
-    </scm>
-    <developers>
-      <developer>
-        <id>ucbjrl</id>
-        <name>Jim Lawson</name>
-      </developer>
-    </developers>
+// Remove the requirement for the v-prefix from sbt-dyn
+ThisBuild / dynverVTagPrefix := false
