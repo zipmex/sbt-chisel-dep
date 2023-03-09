@@ -1,7 +1,7 @@
 sbt-chisel-dep
 =================
 
-This plugin (forked from samskivert/sbt-condep-plugin) adds the ability to have conditional direct dependencies on other projects.
+This plugin (forked from ucb-bar/sbt-chisel-dep, forked from samskivert/sbt-condep-plugin) adds the ability to have conditional direct dependencies on other projects.
 By default, conditional dependencies will reference an Ivy (or Maven)
 artifact, but if you create an appropriately named symlink (or directory)
 in your top-level project directory for the depended-upon project,
@@ -15,14 +15,9 @@ like one gets with IDEs.
 Usage
 -----
 
-Add the plugin (and resolvers) to your `project/plugins.sbt`:
-
-    resolvers ++= Seq(
-      Resolver.sonatypeRepo("snapshots"),
-      Resolver.sonatypeRepo("releases")
-    )
+Add the plugin to your `project/plugins.sbt`:
     
-    addSbtPlugin("edu.berkeley.cs" % "sbt-chisel-dep" % "1.3-SNAPSHOT")
+    addSbtPlugin("com.zipmex" % "sbt-chisel-dep" % "2.0")
 
 In your `build.sbt` file, declare and use your conditional
 dependencies like so:
